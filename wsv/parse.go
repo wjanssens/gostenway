@@ -1,11 +1,12 @@
 package wsv
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"math/big"
 	"strings"
+
+	"github.com/wjanssens/rtxt"
 )
 
 type state int
@@ -142,21 +143,9 @@ func eos(line *Line, space *strings.Builder, preserveWhitespaceAndComments bool)
 func Parse(r io.Reader, preserveWhitespaceAndComments bool, lineIndexOffset int) ([]Line, error) {
 	lines := make([]Line, 0)
 
-	lineIndex := lineIndexOffset - 1
-	s := bufio.NewScanner(r)
-	s.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		if i := strings.Index(string(data), "\n"); i >= 0 {
-			return i + 1, data[0:i], nil
-		}
-		if atEOF {
-			return len(data), data, nil
-		}
-		return
-	})
+	s := rtxt.ScanLines(r)
 
+	lineIndex := lineIndexOffset - 1
 	for s.Scan() {
 		lineIndex++
 		if lineIndex < lineIndexOffset {

@@ -43,22 +43,22 @@ func TestValidateWhitespace(t *testing.T) {
 		"  a",
 	}
 	for i, s := range firstValid {
-		if err := validateSpace(s, true); err != nil {
+		if err := ValidateSpace(s, true); err != nil {
 			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range firstInvalid {
-		if err := validateSpace(s, true); err == nil {
+		if err := ValidateSpace(s, true); err == nil {
 			t.Errorf("Expected %v: %v to be invalid", i, s)
 		}
 	}
 	for i, s := range nonfirstValid {
-		if err := validateSpace(s, false); err != nil {
+		if err := ValidateSpace(s, false); err != nil {
 			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range nonfirstInvalid {
-		if err := validateSpace(s, false); err == nil {
+		if err := ValidateSpace(s, false); err == nil {
 			t.Errorf("Expected %v: %v to be invalid", i, s)
 		}
 	}
@@ -79,12 +79,12 @@ func TestValidateSpaces(t *testing.T) {
 		{" ", "  a"},
 	}
 	for i, s := range valid {
-		if err := validateSpaces(s); err != nil {
+		if err := ValidateSpaces(s); err != nil {
 			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range invalid {
-		if err := validateSpaces(s); err == nil {
+		if err := ValidateSpaces(s); err == nil {
 			t.Errorf("Expected %v: %v to be invalid", i, s)
 		}
 	}
@@ -108,12 +108,12 @@ func TestValidateComment(t *testing.T) {
 		// "\uDD1E\uDD1E",
 	}
 	for i, s := range valid {
-		if err := validateComment(s); err != nil {
+		if err := ValidateComment(s); err != nil {
 			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range invalid {
-		if err := validateComment(s); err == nil {
+		if err := ValidateComment(s); err == nil {
 			t.Errorf("Expected %v: %v to be invalid", i, s)
 		}
 	}
@@ -123,32 +123,30 @@ func TestNewAndSet(t *testing.T) {
 	n0 := big.NewInt(0)
 	n1 := big.NewInt(1)
 	n2 := big.NewInt(2)
-	v0 := []string{}
 	v1 := []string{"a"}
 	v2 := []string{"a", "b"}
-	s0 := []string{}
 	s1 := []string{"\t\t"}
 	s1e := []string{""}
 	s2 := []string{"\t\t", "  "}
 	valid := []Line{
-		{},                 // all empty
-		{v1, n0, s0, ""},   // one value
-		{v2, n0, s0, ""},   // two values
-		{v0, n0, s1, ""},   // leading whitespace
-		{v0, n0, s2, ""},   // unused whitespace
-		{v1, n0, s1, ""},   // one value and leading whitespace
-		{v1, n0, s2, ""},   // one value with leading and trailing whitespace
-		{v0, n0, s0, "c"},  // comment only
-		{v0, n0, s1e, "c"}, // comment empty leading whitespace
-		{v0, n0, s1, "c"},  // comment with leading whitespace
-		{v0, n0, s2, "c"},  // comment with leading and trailing whitespace
-		{v1, n0, s0, "c"},  // one value with comment
-		{v1, n0, s1e, "c"}, // one value with empty leading whitespace and comment
-		{v1, n0, s1, "c"},  // one value with leading whitespace and comment
-		{v1, n0, s2, "c"},  // one value with leading white space, empty trailing whitespace and comment
-		{v1, n0, s2, "c"},  // one value with leading white space, trailing whitespace and comment
-		{v1, n1, s0, ""},
-		{v2, n2, s0, ""},
+		{},                  // all empty
+		{v1, n0, nil, ""},   // one value
+		{v2, n0, nil, ""},   // two values
+		{nil, n0, s1, ""},   // leading whitespace
+		{nil, n0, s2, ""},   // unused whitespace
+		{v1, n0, s1, ""},    // one value and leading whitespace
+		{v1, n0, s2, ""},    // one value with leading and trailing whitespace
+		{nil, n0, nil, "c"}, // comment only
+		{nil, n0, s1e, "c"}, // comment empty leading whitespace
+		{nil, n0, s1, "c"},  // comment with leading whitespace
+		{nil, n0, s2, "c"},  // comment with leading and trailing whitespace
+		{v1, n0, nil, "c"},  // one value with comment
+		{v1, n0, s1e, "c"},  // one value with empty leading whitespace and comment
+		{v1, n0, s1, "c"},   // one value with leading whitespace and comment
+		{v1, n0, s2, "c"},   // one value with leading white space, empty trailing whitespace and comment
+		{v1, n0, s2, "c"},   // one value with leading white space, trailing whitespace and comment
+		{v1, n1, nil, ""},
+		{v2, n2, nil, ""},
 	}
 
 	for i, v := range valid {

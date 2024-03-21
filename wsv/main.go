@@ -2,80 +2,18 @@ package wsv
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 	"strings"
 )
 
-func validateSpaces(spaces []string) error {
-	for i, s := range spaces {
-		if err := validateSpace(s, i == 0); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func validateSpace(s string, first bool) error {
-	if s == "" && !first {
-		return fmt.Errorf("Non-first whitespace string cannot be empty")
-	}
-
-	for i, r := range s {
-		if !isWs(r) {
-			return fmt.Errorf("Invalid code unit '%v' in whitespace string at index %v", r, i)
-		}
-	}
-	return nil
-}
-
-func validateComment(s string) error {
-	var ctl bool = false
-	for _, r := range s {
-		if ctl && r >= 0xdc00 {
-			return fmt.Errorf("Invalid UTF-16 String")
-		} else if r == 0x000a {
-			return fmt.Errorf("Line feed in comment is not allowed")
-		} else if r > 0xd800 && r <= 0xdfff {
-			ctl = true
-		} else if ctl {
-			ctl = false
-		}
-	}
-	if ctl {
-		return fmt.Errorf("Invalid UTF-16 String")
-	} else {
-		return nil
-	}
-}
-
-func containsSpecialChar(s string) bool {
-	for _, r := range s {
-		if isWs(r) {
-			return true
-		}
-		// cr = value.charCodeAt(i)
-		// if (c >= 0xD800 && c <= 0xDFFF) {
-		// 	i++
-		// 	if (c >= 0xDC00 || i >= value.length) { throw new InvalidUtf16StringError() }
-		// 	const secondCodeUnit: number = value.charCodeAt(i)
-		// 	if (!(secondCodeUnit >= 0xDC00 && secondCodeUnit <= 0xDFFF)) { throw new InvalidUtf16StringError() }
-		// }
-	}
-	return false
-}
-
-func IsSpecial(s string) bool {
-	return s == "" || s == "-" || containsSpecialChar(s)
-}
-
-func serializeValue(s string, isNull bool) string {
+func SerializeValue(s string, isNull bool) string {
 	if isNull {
 		return "-"
 	} else if len(s) == 0 {
 		return "\"\""
 	} else if s == "-" {
 		return "\"-\""
-	} else if containsSpecialChar(s) {
+	} else if ContainsSpecialChar(s) {
 		var b bytes.Buffer
 		b.WriteRune(0x0022) // "
 
@@ -129,11 +67,17 @@ func (l *Line) Len() int {
 	return len(l.values)
 }
 
+func (l *Line) HasValues() bool {
+	return l.values != nil && len(l.values) > 0
+}
 func (l *Line) GetValues() []string {
 	return l.values
 }
 func (l *Line) SetValues(values []string) {
 	l.values = values
+}
+func (l *Line) SetValue(i int, value string) {
+	l.values[i] = value
 }
 func (n *Line) IsNil(i int) bool {
 	return n.nulls.Bit(i) == 1
@@ -144,14 +88,24 @@ func (n *Line) SetNil(i int) {
 func (n *Line) UnsetNil(i int) {
 	n.nulls.SetBit(n.nulls, i, 0)
 }
+func (l *Line) HasSpaces() bool {
+	return l.spaces != nil && len(l.spaces) > 0
+}
 func (l *Line) GetSpaces() []string {
 	return l.spaces
 }
 func (l *Line) SetSpaces(spaces []string) error {
-	if err := validateSpaces(spaces); err != nil {
+	if err := ValidateSpaces(spaces); err != nil {
 		return err
 	}
 	l.spaces = spaces
+	return nil
+}
+func (l *Line) SetSpace(i int, space string) error {
+	if err := ValidateSpace(space, i == 0); err != nil {
+		return err
+	}
+	l.spaces[i] = space
 	return nil
 }
 func (l *Line) HasComment() bool {
@@ -161,7 +115,7 @@ func (l *Line) GetComment() string {
 	return l.comment
 }
 func (l *Line) SetComment(s string) error {
-	if err := validateComment(s); err != nil {
+	if err := ValidateComment(s); err != nil {
 		return err
 	}
 	l.comment = s
@@ -178,7 +132,7 @@ func (l *Line) String() string {
 		}
 		null := l.nulls.Bit(i) > 0
 		result = append(result, sp)
-		result = append(result, serializeValue(v, null))
+		result = append(result, SerializeValue(v, null))
 	}
 	if spacect > valuect {
 		result = append(result, l.spaces[valuect])
@@ -197,7 +151,7 @@ func (l *Line) ValuesString() string {
 			result = append(result, " ")
 		}
 		null := l.nulls.Bit(i) > 0
-		result = append(result, serializeValue(v, null))
+		result = append(result, SerializeValue(v, null))
 	}
 	return strings.Join(result, "")
 }
