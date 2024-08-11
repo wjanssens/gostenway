@@ -19,47 +19,45 @@ const (
 	Utf32                            = 3
 )
 
-func WriteString(w io.Writer, s string, enc ReliableTxtEncoding) (n int, err error) {
+func Join(lines []string) string {
+	return strings.Join(lines, "\n")
+}
+func Split(s string) []string {
+	return strings.Split(s, "\n")
+}
+
+func Encoder(w io.Writer, enc ReliableTxtEncoding) (io.Writer, error) {
 	switch enc {
 	case Utf32:
-		return 0, fmt.Errorf("UTF32 encoding not implemented")
+		return nil, fmt.Errorf("UTF32 encoding not implemented")
 	case Utf16:
-		t := unicode.UTF16(unicode.BigEndian, unicode.ExpectBOM)
+		t := unicode.UTF16(unicode.BigEndian, unicode.UseBOM)
 		w = transform.NewWriter(w, t.NewEncoder().Transformer)
 	case Utf16Reverse:
-		t := unicode.UTF16(unicode.LittleEndian, unicode.ExpectBOM)
+		t := unicode.UTF16(unicode.LittleEndian, unicode.UseBOM)
 		w = transform.NewWriter(w, t.NewEncoder().Transformer)
 	default:
 		t := unicode.UTF8BOM
 		w = transform.NewWriter(w, t.NewEncoder().Transformer)
 	}
-	return io.WriteString(w, s)
+	return w, nil
 }
 
 func WriteLines(w io.Writer, lines []string, enc ReliableTxtEncoding) (n int, err error) {
 	var r int
-	switch enc {
-	case Utf32:
-		return 0, fmt.Errorf("UTF32 encoding not implemented")
-	case Utf16:
-		t := unicode.UTF16(unicode.BigEndian, unicode.ExpectBOM)
-		w = transform.NewWriter(w, t.NewEncoder().Transformer)
-	case Utf16Reverse:
-		t := unicode.UTF16(unicode.LittleEndian, unicode.ExpectBOM)
-		w = transform.NewWriter(w, t.NewEncoder().Transformer)
-	default:
-		t := unicode.UTF8BOM
-		w = transform.NewWriter(w, t.NewEncoder().Transformer)
+	e, err := Encoder(w, enc)
+	if err != nil {
+		return 0, err
 	}
 	for l := range lines {
 		if l > 0 {
-			if n, err := io.WriteString(w, "\n"); err == nil {
+			if n, err := io.WriteString(e, "\n"); err == nil {
 				return n + r, err
 			} else {
 				n += r
 			}
 		}
-		if n, err = io.WriteString(w, lines[l]); err == nil {
+		if n, err = io.WriteString(e, lines[l]); err == nil {
 			return n + r, err
 		} else {
 			n += r
@@ -83,13 +81,13 @@ func ScanLines(r io.Reader) *bufio.Scanner {
 	s := bufio.NewScanner(tr)
 	s.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
-			return 0, nil, nil
+			return 0, data, bufio.ErrFinalToken
 		}
 		if i := strings.Index(string(data), "\n"); i >= 0 {
 			return i + 1, data[0:i], nil
 		}
 		if atEOF {
-			return len(data), data, nil
+			return len(data), data, bufio.ErrFinalToken
 		}
 		return
 	})
