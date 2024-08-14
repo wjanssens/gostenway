@@ -1,7 +1,7 @@
 package wsv
 
 import (
-	"math/big"
+	"fmt"
 	"testing"
 )
 
@@ -44,22 +44,22 @@ func TestValidateWhitespace(t *testing.T) {
 	}
 	for i, s := range firstValid {
 		if err := ValidateSpace(s, true); err != nil {
-			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
+			t.Errorf("%v: expected %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range firstInvalid {
 		if err := ValidateSpace(s, true); err == nil {
-			t.Errorf("Expected %v: %v to be invalid", i, s)
+			t.Errorf("%v: expected %v to be invalid", i, s)
 		}
 	}
 	for i, s := range nonfirstValid {
 		if err := ValidateSpace(s, false); err != nil {
-			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
+			t.Errorf("%v: expected %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range nonfirstInvalid {
 		if err := ValidateSpace(s, false); err == nil {
-			t.Errorf("Expected %v: %v to be invalid", i, s)
+			t.Errorf("%v: expected %v to be invalid", i, s)
 		}
 	}
 
@@ -80,12 +80,12 @@ func TestValidateSpaces(t *testing.T) {
 	}
 	for i, s := range valid {
 		if err := ValidateSpaces(s); err != nil {
-			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
+			t.Errorf("%v: expected %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range invalid {
 		if err := ValidateSpaces(s); err == nil {
-			t.Errorf("Expected %v: %v to be invalid", i, s)
+			t.Errorf("%v: expected %v to be invalid", i, s)
 		}
 	}
 }
@@ -109,49 +109,227 @@ func TestValidateComment(t *testing.T) {
 	}
 	for i, s := range valid {
 		if err := ValidateComment(s); err != nil {
-			t.Errorf("Expected %v: %v to be valid: %v", i, s, err)
+			t.Errorf("%v: expected %v to be valid: %v", i, s, err)
 		}
 	}
 	for i, s := range invalid {
 		if err := ValidateComment(s); err == nil {
-			t.Errorf("Expected %v: %v to be invalid", i, s)
+			t.Errorf("%v: expected %v to be invalid", i, s)
 		}
 	}
 }
 
-func TestNewAndSet(t *testing.T) {
-	n0 := big.NewInt(0)
-	n1 := big.NewInt(1)
-	n2 := big.NewInt(2)
+func TestBuilder(t *testing.T) {
+	type test struct {
+		builder  *LineBuilder
+		preserve string
+		minimal  string
+	}
 	v1 := []string{"a"}
 	v2 := []string{"a", "b"}
 	s1 := []string{"\t\t"}
 	s1e := []string{""}
 	s2 := []string{"\t\t", "  "}
-	valid := []Line{
-		{},                  // all empty
-		{v1, n0, nil, ""},   // one value
-		{v2, n0, nil, ""},   // two values
-		{nil, n0, s1, ""},   // leading whitespace
-		{nil, n0, s2, ""},   // unused whitespace
-		{v1, n0, s1, ""},    // one value and leading whitespace
-		{v1, n0, s2, ""},    // one value with leading and trailing whitespace
-		{nil, n0, nil, "c"}, // comment only
-		{nil, n0, s1e, "c"}, // comment empty leading whitespace
-		{nil, n0, s1, "c"},  // comment with leading whitespace
-		{nil, n0, s2, "c"},  // comment with leading and trailing whitespace
-		{v1, n0, nil, "c"},  // one value with comment
-		{v1, n0, s1e, "c"},  // one value with empty leading whitespace and comment
-		{v1, n0, s1, "c"},   // one value with leading whitespace and comment
-		{v1, n0, s2, "c"},   // one value with leading white space, empty trailing whitespace and comment
-		{v1, n0, s2, "c"},   // one value with leading white space, trailing whitespace and comment
-		{v1, n1, nil, ""},
-		{v2, n2, nil, ""},
+	tests := []test{
+		{NewLineBuilder(), "", ""},
+		{NewLineBuilder().Values(v1), "a", "a"},
+		{NewLineBuilder().Values(v2), "a b", "a b"},
+		{NewLineBuilder().Spaces(s1), "\t\t", ""},
+		{NewLineBuilder().Spaces(s2), "\t\t", ""},
+		{NewLineBuilder().Values(s1), "\t\ta", "a"},
+		{NewLineBuilder().Values(s2), "\t\ta  ", "a"},
+		{NewLineBuilder().Comment("c"), "#c", ""},
+		{NewLineBuilder().Comment("c").Spaces(s1e), "#c", ""},
+		{NewLineBuilder().Comment("c").Spaces(s1), "\t\t#c", ""},
+		{NewLineBuilder().Comment("c").Spaces(s2), "\t\t#c", ""},
+		{NewLineBuilder().Values(v1).Comment("c"), "a#c", "a"},
+		{NewLineBuilder().Values(v1).Spaces(s1e), "a", "a"},
+		{NewLineBuilder().Values(v1).Spaces(s1).Comment("c"), "\t\ta#c", "a"},
+		{NewLineBuilder().Values(v1).Spaces(s2).Comment("c"), "\t\ta  #c", "a"},
+		{NewLineBuilder().Nil(1), "-", "-"},
+		{NewLineBuilder().Values(v1).Nil(2), "a -", "a -"},
 	}
 
-	for i, v := range valid {
-		if _, err := NewLine(v.values, v.spaces, v.comment); err != nil {
-			t.Errorf("Expected %v: %v to be valid: %v", i, v, err)
+	for i, test := range tests {
+		if line, err := test.builder.Build(); err != nil {
+			t.Errorf("%v: unexpected errors: %v", i, err)
+		} else {
+			preserve := line.String()
+			if preserve != test.preserve {
+				t.Errorf("%v: expected %v, got %v", i, test.preserve, preserve)
+			}
+			minimal := line.ValuesString()
+			if minimal != test.minimal {
+				t.Errorf("%v: expected %v, got %v", i, test.minimal, minimal)
+			}
+		}
+	}
+}
+
+func TestHasValues(t *testing.T) {
+	type test struct {
+		values   []string
+		hasValue bool
+	}
+	tests := []test{
+		{nil, false},
+		{[]string{""}, true},
+		{[]string{"v"}, true},
+	}
+	for i, p := range tests {
+		if l, err := NewLineBuilder().Values(p.values).Build(); err == nil {
+			if p.hasValue != l.HasValues() {
+				t.Errorf("%v: expected %v", i, p.hasValue)
+			}
+		} else {
+			t.Errorf("%v: unexpected error %v", i, err)
+		}
+	}
+}
+
+func TestHasSpaces(t *testing.T) {
+	type test struct {
+		spaces    []string
+		hasSpaces bool
+	}
+	tests := []test{
+		{[]string{}, false},
+		{[]string{""}, true},
+		{[]string{" "}, true},
+	}
+	for i, test := range tests {
+		if l, err := NewLineBuilder().Spaces(test.spaces).Build(); err == nil {
+			if test.hasSpaces != l.HasSpaces() {
+				t.Errorf("%v: expected %v", i, test.hasSpaces)
+			}
+		} else {
+			t.Errorf("%v: unexpected error %v", i, err)
+		}
+	}
+}
+
+func TestHasComments(t *testing.T) {
+	type test struct {
+		comment    string
+		hasComment bool
+	}
+	tests := []test{
+		{"", false},
+		{"c", true},
+	}
+	for i, test := range tests {
+		if l, err := NewLineBuilder().Comment(test.comment).Build(); err == nil {
+			if test.hasComment != l.HasComment() {
+				t.Errorf("%v: expected %v", i, test.hasComment)
+			}
+		} else {
+			t.Errorf("%v: unexpected error %v", i, err)
+		}
+	}
+}
+
+func TestParse(t *testing.T) {
+	type test struct {
+		input    string
+		preserve string
+		minimal  string
+	}
+	tests := []test{
+		// {"", "", ""},
+		// {" ", " ", ""},
+		// {"  ", "  ", ""},
+		// {"a", "a", "a"},
+		// {"a ", "a ", "a"},
+		// {"a  ", "a  ", "a"},
+		// {" a", " a", "a"},
+		// {"  a", "  a", "a"},
+		// {"  a  ", "  a  ", "a"},
+		// {"a b", "a b", "a b"},
+		// {"a  b", "a  b", "a b"},
+		// {" a b", " a b", "a b"},
+		// {"  a b", "  a b", "a b"},
+		// {"  a  b", "  a  b", "a b"},
+		// {"a b ", "a b ", "a b"},
+		// {"a  b  ", "a  b  ", "a b"},
+		// {" a b ", " a b ", "a b"},
+		// {"  a b ", "  a b ", "a b"},
+		// {"  a  b  ", "  a  b  ", "a b"},
+		{"#", "#", ""},
+		// {" #", " #", ""},
+		// {"  #", "  #", ""},
+		// {"a#", "a#", "a"},
+		// {"a #", "a #", "a"},
+		// {"a  #", "a  #", "a"},
+		// {" a#", " a#", "a"},
+		// {"  a#", "  a#", "a"},
+		// {"  a  #", "  a  #", "a"},
+		// {"a b#", "a b#", "a b"},
+		// {"a  b#", "a  b#", "a b"},
+		// {" a b#", " a b#", "a b"},
+		// {"  a b#", "  a b#", "a b"},
+		// {"  a  b#", "  a  b#", "a b"},
+		// {"a b #", "a b #", "a b"},
+		// {"a  b  #", "a  b  #", "a b"},
+		// {" a b #", " a b #", "a b"},
+		// {"  a b #", "  a b #", "a b"},
+		// {"  a  b  #", "  a  b  #", "a b"},
+		// {"#c", "#c", ""},
+		// {" #c", " #c", ""},
+		// {"  #c", "  #c", ""},
+		// {"a#c", "a#c", "a"},
+		// {"a #c", "a #c", "a"},
+		// {"a  #c", "a  #c", "a"},
+		// {" a#c", " a#c", "a"},
+		// {"  a#c", "  a#c", "a"},
+		// {"  a  #c", "  a  #c", "a"},
+		// {"a b#c", "a b#c", "a b"},
+		// {"a  b#c", "a  b#c", "a b"},
+		// {" a b#c", " a b#c", "a b"},
+		// {"  a b#c", "  a b#c", "a b"},
+		// {"  a  b#c", "  a  b#c", "a b"},
+		// {"a b #c", "a b #c", "a b"},
+		// {"a  b  #c", "a  b  #c", "a b"},
+		// {" a b #c", " a b #c", "a b"},
+		// {"  a b #c", "  a b #c", "a b"},
+		// {"  a  b  #c", "  a  b  #c", "a b"},
+		// {"\uD834\uDD1E", "\uD834\uDD1E", "\uD834\uDD1E"},
+		// {"#\uD834\uDD1E", "#\uD834\uDD1E", ""},
+		// {`""`, `""`, `""`},
+		// {`"" `, `"" `, `""`},
+		// {`"\uD834\uDD1E"`, `\uD834\uDD1E`, `\uD834\uDD1E`},
+		// {"-", "-", "-"},
+		// {"-a", "-a", "-a"},
+	}
+
+	for i, test := range tests {
+		if l, err := ParseLine(test.input, true); err == nil {
+			fmt.Println(l.comment)
+
+			preserve := l.String()
+			if preserve != test.preserve {
+				t.Errorf("%v: expected %v, got %v", i, test.preserve, preserve)
+			}
+
+			minimal := l.ValuesString()
+			if minimal != test.minimal {
+				t.Errorf("%v: expected %v, got %v", i, test.minimal, minimal)
+			}
+
+		} else {
+			t.Errorf("%v: unexpected error %v", i, err)
+		}
+		if l, err := ParseLine(test.input, false); err == nil {
+			preserve := l.String()
+			if preserve != test.minimal {
+				t.Errorf("%v: expected %v, got %v", i, test.minimal, preserve)
+			}
+
+			minimal := l.ValuesString()
+			if minimal != test.minimal {
+				t.Errorf("%v: expected %v, got %v", i, test.minimal, minimal)
+			}
+		} else {
+			t.Errorf("%v: unexpected error %v", i, err)
 		}
 	}
 }

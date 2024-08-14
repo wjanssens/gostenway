@@ -44,29 +44,16 @@ type Line struct {
 	values  []string
 	nulls   *big.Int
 	spaces  []string
+	hash    bool
 	comment string
 }
 
-func NewLine(values []string, spaces []string, comment string) (Line, error) {
-	line := Line{}
-	err := line.Set(values, spaces, comment)
-	return line, err
+func NewLine() Line {
+	return Line{}
 }
-func (l *Line) Set(values []string, spaces []string, comment string) error {
-	l.SetValues(values)
-	if err := l.SetSpaces(spaces); err != nil {
-		return err
-	}
-	if err := l.SetComment(comment); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (l *Line) Len() int {
 	return len(l.values)
 }
-
 func (l *Line) HasValues() bool {
 	return l.values != nil && len(l.values) > 0
 }
@@ -109,17 +96,22 @@ func (l *Line) SetSpace(i int, space string) error {
 	return nil
 }
 func (l *Line) HasComment() bool {
-	return l.comment != ""
+	return l.hash && l.comment != ""
 }
-func (l *Line) GetComment() string {
-	return l.comment
+func (l *Line) GetComment() (string, bool) {
+	return l.comment, l.hash
 }
 func (l *Line) SetComment(s string) error {
 	if err := ValidateComment(s); err != nil {
 		return err
 	}
+	l.hash = true
 	l.comment = s
 	return nil
+}
+func (l *Line) ClearComment() {
+	l.hash = false
+	l.comment = ""
 }
 func (l *Line) String() string {
 	result := make([]string, 0)
@@ -137,7 +129,7 @@ func (l *Line) String() string {
 	if spacect > valuect {
 		result = append(result, l.spaces[valuect])
 	}
-	if len(l.comment) > 0 {
+	if l.hash {
 		result = append(result, "#")
 		result = append(result, l.comment)
 	}

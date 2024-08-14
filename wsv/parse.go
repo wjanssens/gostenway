@@ -32,6 +32,7 @@ func ParseLine(l string, preserveWhitespaceAndComments bool) (Line, error) {
 		spaces:  spaces,
 		nulls:   big.NewInt(0),
 		comment: "",
+		hash:    false,
 	}
 	if len(l) == 0 {
 		return line, nil
@@ -45,6 +46,7 @@ func ParseLine(l string, preserveWhitespaceAndComments bool) (Line, error) {
 			if r == 0x0022 { // quote
 				state = quotedState
 			} else if r == 0x0023 { // hash
+				line.hash = true
 				state = commentState
 			} else if r == 0x002d { // dash
 				eov(&line, &value, true)

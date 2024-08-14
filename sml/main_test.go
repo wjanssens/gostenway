@@ -20,5 +20,4 @@ func TestIsMethods(t *testing.T) {
 	if !x.IsEmpty() {
 		t.Errorf("expected empty.IsEmpty() == true")
 	}
-
 }
