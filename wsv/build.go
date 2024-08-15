@@ -1,13 +1,13 @@
 package wsv
 
 type LineBuilder struct {
-	Line   Line
+	Line   *Line
 	Errors []error
 }
 
 func NewLineBuilder() *LineBuilder {
 	return &LineBuilder{
-		Line: Line{},
+		Line: NewLine(),
 	}
 }
 func (b *LineBuilder) Value(i int, value string) *LineBuilder {
@@ -48,6 +48,6 @@ func (b *LineBuilder) NotNil(i int) *LineBuilder {
 	b.Line.UnsetNil(i)
 	return b
 }
-func (b *LineBuilder) Build() (Line, []error) {
+func (b *LineBuilder) Build() (*Line, []error) {
 	return b.Line, b.Errors
 }

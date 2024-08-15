@@ -48,8 +48,14 @@ type Line struct {
 	comment string
 }
 
-func NewLine() Line {
-	return Line{}
+func NewLine() *Line {
+	return &Line{
+		values:  make([]string, 0),
+		nulls:   big.NewInt(0),
+		spaces:  make([]string, 0),
+		hash:    false,
+		comment: "",
+	}
 }
 func (l *Line) Len() int {
 	return len(l.values)
@@ -66,14 +72,17 @@ func (l *Line) SetValues(values []string) {
 func (l *Line) SetValue(i int, value string) {
 	l.values[i] = value
 }
-func (n *Line) IsNil(i int) bool {
-	return n.nulls.Bit(i) == 1
+func (l *Line) IsNil(i int) bool {
+	return l.nulls.Bit(i) == 1
 }
-func (n *Line) SetNil(i int) {
-	n.nulls.SetBit(n.nulls, i, 1)
+func (l *Line) SetNil(i int) {
+	l.nulls = l.nulls.SetBit(l.nulls, i, 1)
+	for i >= len(l.values) {
+		l.values = append(l.values, "")
+	}
 }
-func (n *Line) UnsetNil(i int) {
-	n.nulls.SetBit(n.nulls, i, 0)
+func (l *Line) UnsetNil(i int) {
+	l.nulls = l.nulls.SetBit(l.nulls, i, 0)
 }
 func (l *Line) HasSpaces() bool {
 	return l.spaces != nil && len(l.spaces) > 0
@@ -118,13 +127,12 @@ func (l *Line) String() string {
 	spacect := len(l.spaces)
 	valuect := len(l.values)
 	for i, v := range l.values {
-		sp := ""
 		if spacect > i {
-			sp = l.spaces[i]
+			result = append(result, l.spaces[i])
+		} else if i > 0 {
+			result = append(result, " ")
 		}
-		null := l.nulls.Bit(i) > 0
-		result = append(result, sp)
-		result = append(result, SerializeValue(v, null))
+		result = append(result, SerializeValue(v, l.IsNil(i)))
 	}
 	if spacect > valuect {
 		result = append(result, l.spaces[valuect])
@@ -133,7 +141,6 @@ func (l *Line) String() string {
 		result = append(result, "#")
 		result = append(result, l.comment)
 	}
-
 	return strings.Join(result, "")
 }
 func (l *Line) ValuesString() string {

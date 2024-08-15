@@ -3,7 +3,6 @@ package wsv
 import (
 	"fmt"
 	"io"
-	"math/big"
 	"strings"
 
 	"github.com/wjanssens/rtxt"
@@ -19,21 +18,12 @@ const (
 	expectState        = 4 // next char must be a quote to end a quoted slash or dash
 )
 
-func ParseLine(l string, preserveWhitespaceAndComments bool) (Line, error) {
+func ParseLine(l string, preserveWhitespaceAndComments bool) (*Line, error) {
 	value := strings.Builder{}
 	space := strings.Builder{}
 	comment := strings.Builder{}
 
-	values := make([]string, 0)
-	spaces := make([]string, 0)
-
-	line := Line{
-		values:  values,
-		spaces:  spaces,
-		nulls:   big.NewInt(0),
-		comment: "",
-		hash:    false,
-	}
+	line := NewLine()
 	if len(l) == 0 {
 		return line, nil
 	}
@@ -49,15 +39,15 @@ func ParseLine(l string, preserveWhitespaceAndComments bool) (Line, error) {
 				line.hash = true
 				state = commentState
 			} else if r == 0x002d { // dash
-				eov(&line, &value, true)
+				eov(line, &value, true)
 			} else if isWs(r) { // ws
 				if value.Len() > 0 {
-					eov(&line, &value, false)
+					eov(line, &value, false)
 				}
 				space.WriteRune(r)
 			} else {
 				if space.Len() > 0 {
-					eos(&line, &space, preserveWhitespaceAndComments)
+					eos(line, &space, preserveWhitespaceAndComments)
 				}
 				value.WriteRune(r)
 			}
@@ -90,7 +80,7 @@ func ParseLine(l string, preserveWhitespaceAndComments bool) (Line, error) {
 				// last quote wasn't an excape, it was the end of the quoted string
 				value.WriteRune(0x0022)
 				value.WriteRune(r)
-				eov(&line, &value, false)
+				eov(line, &value, false)
 				state = defaultState
 			}
 		case expectState:
@@ -106,9 +96,9 @@ func ParseLine(l string, preserveWhitespaceAndComments bool) (Line, error) {
 		return line, fmt.Errorf("Quoted string not closed")
 	} else {
 		if value.Len() > 0 {
-			eov(&line, &value, false)
+			eov(line, &value, false)
 		} else if space.Len() > 0 {
-			eos(&line, &space, preserveWhitespaceAndComments)
+			eos(line, &space, preserveWhitespaceAndComments)
 		}
 	}
 	if preserveWhitespaceAndComments {
@@ -156,7 +146,7 @@ func Parse(r io.Reader, preserveWhitespaceAndComments bool, lineIndexOffset int)
 		if line, err := ParseLine(s.Text(), preserveWhitespaceAndComments); err != nil {
 			return lines, err
 		} else {
-			lines = append(lines, line)
+			lines = append(lines, *line)
 		}
 	}
 	return lines, nil
